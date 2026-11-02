@@ -3,59 +3,286 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Partners Login Test</title>
+<title>Partners Account</title>
+<script src="pm-auth.js"></script>
 <style>
-  body{margin:0;min-height:100vh;background:#060D0F;color:#F5F5F7;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Inter",system-ui,sans-serif;display:flex;align-items:center;justify-content:center;padding:24px;box-sizing:border-box}
-  .card{width:560px;max-width:100%;background:#0F181A;border-radius:22px;padding:28px;box-shadow:0 0 0 1px rgba(255,255,255,.08)}
-  h1{font-size:26px;margin:0 0 6px;letter-spacing:-.02em}
-  p{color:#A1A1A6;font-size:14px;line-height:1.5}
-  textarea{width:100%;box-sizing:border-box;min-height:120px;background:#0A1214;color:#F5F5F7;border:1px solid rgba(255,255,255,.16);border-radius:12px;padding:12px;font:15px inherit;font-family:inherit}
-  .row{display:flex;gap:10px;margin-top:12px}
-  button{border:none;border-radius:999px;padding:10px 18px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit}
-  .pri{background:#00818D;color:#fff}
-  .sec{background:rgba(118,118,128,.24);color:#F5F5F7}
-  #status{margin-top:14px;font-size:13px;color:#7FE3E9;min-height:18px}
+  :root{--bg:#060D0F;--card:#0F181A;--line:rgba(255,255,255,.08);--txt:#F5F5F7;--mid:#D1D1D6;--muted:#A1A1A6;--sub:#86868B;--teal:#00818D;--teal2:#25BAC4;--gold:#FFAC27}
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;color:var(--txt);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Inter",system-ui,sans-serif;-webkit-font-smoothing:antialiased;
+    background:radial-gradient(1000px 520px at 90% -10%,rgba(37,186,196,.16),transparent 60%),radial-gradient(800px 480px at -5% 110%,rgba(255,172,39,.07),transparent 60%),var(--bg)}
+  .wrap{max-width:760px;margin:0 auto;padding:44px 22px 80px}
+  .brand{display:flex;align-items:center;gap:11px;margin-bottom:34px}
+  .mark{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,var(--teal),var(--teal2));display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;font-size:18px}
+  .brand b{display:block;font-size:15px}.brand span{font-size:12.5px;color:var(--sub)}
+  .brand .who{margin-left:auto;text-align:right;font-size:12.5px;color:var(--muted)}
+  .brand .who button{background:none;border:none;color:#3CC5CE;font-family:inherit;font-size:12.5px;font-weight:600;cursor:pointer;padding:0;margin-top:2px}
+  h1{font-size:44px;line-height:1.05;letter-spacing:-.03em;margin:0 0 12px;font-weight:700}
+  h1 em{font-style:normal;background:linear-gradient(90deg,#25BAC4,#7FE3E9 60%,#FFC970);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .lede{font-size:17px;color:var(--muted);line-height:1.5;margin:0 0 28px;max-width:600px}
+  .steps{display:flex;gap:6px;margin-bottom:26px}
+  .steps div{flex:1;height:4px;border-radius:2px;background:rgba(255,255,255,.1)}
+  .steps div.on{background:var(--teal2)}
+  .card{background:linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,.012)),var(--card);border-radius:22px;padding:26px;box-shadow:0 0 0 1px var(--line),0 10px 34px rgba(0,0,0,.35);margin-bottom:16px}
+  .card h2{font-size:21px;letter-spacing:-.02em;margin:0 0 4px}
+  .card .hint{font-size:13.5px;color:var(--muted);margin:0 0 18px;line-height:1.45}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px 14px}
+  label{display:block;font-size:12.5px;font-weight:600;color:var(--mid);margin-bottom:6px}
+  label i{font-style:normal;font-weight:400;color:var(--sub)}
+  input[type=text],input[type=tel],input[type=email]{width:100%;background:#0A1214;border:1px solid rgba(255,255,255,.16);border-radius:12px;color:var(--txt);font-size:15px;padding:12px 14px;outline:none;font-family:inherit}
+  input:focus{border-color:var(--teal2);box-shadow:0 0 0 4px rgba(37,186,196,.18)}
+  input[readonly],input:disabled{color:var(--muted)}
+  .check{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);margin-top:8px;cursor:pointer;font-weight:400}
+  .check input{accent-color:#25BAC4}
+  .photo{display:flex;gap:18px;align-items:center}
+  .ph{width:112px;height:112px;border-radius:50%;flex-shrink:0;background:#0A1214 center 25%/cover no-repeat;box-shadow:0 0 0 1px rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;color:var(--sub);font-size:12px;text-align:center;cursor:pointer}
+  .ph.has{box-shadow:0 0 0 3px rgba(37,186,196,.5)}
+  .photo ul{margin:6px 0 12px;padding-left:18px;color:var(--muted);font-size:13px;line-height:1.6}
+  .btn{border:none;border-radius:999px;padding:10px 18px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit}
+  .btn.pri{background:linear-gradient(180deg,#0896A2,#00818D);color:#fff;box-shadow:inset 0 1px 0 rgba(255,255,255,.18)}
+  .btn.sec{background:rgba(118,118,128,.24);color:var(--txt)}
+  .btn.big{width:100%;padding:15px;font-size:16px;border-radius:14px;margin-top:6px}
+  .btn:disabled{opacity:.6;cursor:wait}
+  .seg{display:flex;background:rgba(118,118,128,.24);border-radius:10px;padding:2px;margin-bottom:12px}
+  .seg button{flex:1;background:none;border:none;color:var(--mid);font-family:inherit;font-size:13.5px;font-weight:500;padding:8px;border-radius:8px;cursor:pointer}
+  .seg button.sel{background:#3A4245;color:#fff;font-weight:600;box-shadow:0 3px 8px rgba(0,0,0,.35)}
+  .logo{height:84px;border-radius:14px;background:#E9EEEE;display:flex;align-items:center;justify-content:center;cursor:pointer;margin-bottom:10px;color:#6E6E73;font-size:13.5px}
+  .logo img{max-height:56px;max-width:80%}
+  .err{color:#FF8A80;font-size:13px;margin-top:10px;min-height:16px}
+  .done-head{display:flex;align-items:center;gap:16px;margin-bottom:6px}
+  .done-head .ph{width:72px;height:72px;cursor:default}
+  .tools{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px}
+  .tool{display:block;text-decoration:none;color:var(--txt);background:rgba(255,255,255,.03);border-radius:16px;padding:16px;box-shadow:0 0 0 1px var(--line);transition:box-shadow .2s,transform .2s}
+  .tool:hover{box-shadow:0 0 0 1px rgba(37,186,196,.5);transform:translateY(-2px)}
+  .tool b{display:block;font-size:15px;margin-bottom:3px}
+  .tool span{font-size:12.5px;color:var(--muted);line-height:1.4}
+  .row{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:rgba(40,46,48,.96);color:#fff;padding:12px 18px;border-radius:14px;font-size:14px;box-shadow:0 0 0 1px rgba(255,255,255,.1),0 16px 40px rgba(0,0,0,.5);display:none;z-index:50}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{text-align:left;color:var(--sub);font-weight:600;padding:8px 6px;border-bottom:1px solid var(--line)}
+  td{padding:9px 6px;border-bottom:1px solid rgba(255,255,255,.05);color:var(--mid);white-space:nowrap}
+  td .av{width:26px;height:26px;border-radius:50%;background:#0A1214 center 25%/cover;display:inline-block;vertical-align:middle;margin-right:8px}
+  .pill{display:inline-block;font-size:11px;font-weight:600;border-radius:999px;padding:2px 8px}
+  .pill.ok{background:rgba(48,209,88,.14);color:#7EE29A}.pill.no{background:rgba(255,159,10,.14);color:#FFB547}
+  .hidden{display:none}
+  @media(max-width:600px){.grid,.tools{grid-template-columns:1fr}h1{font-size:34px}.photo{flex-direction:column;align-items:flex-start}}
 </style>
 </head>
 <body>
-<div class="card">
-  <h1>Hi <span id="who">there</span></h1>
-  <p>This page proves the shared login works. Type anything, press Save, then open this page on another computer or browser and sign in with the same account. Your note will be there.</p>
-  <textarea id="note" placeholder="Write a test note..."></textarea>
-  <div class="row">
-    <button class="pri" onclick="saveNote()">Save to my account</button>
-    <button class="sec" onclick="loadNote()">Reload from cloud</button>
-  </div>
-  <div id="status"></div>
-</div>
+<div class="wrap">
+  <div class="brand"><div class="mark">P</div><div><b>Partners Mortgage</b><span>Partners Account</span></div><div class="who" id="who"></div></div>
 
-<script src="pm-auth.js"></script>
+  <div id="loading" class="lede">Loading your account...</div>
+
+  <div id="setup" class="hidden">
+    <h1>Welcome. <em>Let's set you up.</em></h1>
+    <p class="lede">This takes about two minutes. Your info and headshot fill in automatically across every Partners tool, so you only enter it once.</p>
+    <div class="steps"><div class="on"></div><div class="on"></div><div class="on"></div><div id="st4"></div></div>
+
+    <div class="card">
+      <h2>About you</h2>
+      <p class="hint">This shows on your marketing and in company tools.</p>
+      <div class="grid">
+        <div><label>First name</label><input type="text" id="fFirst" autocomplete="given-name"></div>
+        <div><label>Last name</label><input type="text" id="fLast" autocomplete="family-name"></div>
+        <div><label>Title</label><input type="text" id="fTitle" placeholder="Loan Officer, Processor..."></div>
+        <div><label>Mobile phone</label><input type="tel" id="fPhone" autocomplete="tel" placeholder="(916) 555-0123"></div>
+        <div><label>Work email</label><input type="email" id="fEmail" readonly></div>
+        <div><label>NMLS number <i>(licensed staff)</i></label><input type="text" id="fNmls" inputmode="numeric" placeholder="e.g. 1234567">
+          <label class="check"><input type="checkbox" id="fNoNmls" onchange="toggleNmls()"> I don't have an NMLS number</label></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Your headshot</h2>
+      <p class="hint">Used on your social posts, flyers, and team pages.</p>
+      <div class="photo">
+        <div class="ph" id="phPrev" onclick="document.getElementById('phInput').click()">Tap to<br>upload</div>
+        <div>
+          <ul><li>Shoulders up, facing the camera</li><li>Good light, simple background</li><li>A recent, professional photo</li></ul>
+          <button class="btn sec" type="button" onclick="document.getElementById('phInput').click()" id="phBtn">Upload headshot</button>
+        </div>
+      </div>
+      <input type="file" id="phInput" accept="image/*" style="display:none" onchange="onPhoto(event)">
+    </div>
+
+    <div class="card">
+      <h2>Your brand</h2>
+      <p class="hint">Most people post as Partners Mortgage. If you operate a DBA under Partners, add your logo and it shows with "Powered by Partners Mortgage".</p>
+      <div class="seg" id="brandSeg"><button type="button" class="sel" data-b="partners" onclick="setBrand('partners')">Partners Mortgage</button><button type="button" data-b="dba" onclick="setBrand('dba')">I have a DBA</button></div>
+      <div id="dbaBox" class="hidden">
+        <div class="logo" id="logoPrev" onclick="document.getElementById('logoInput').click()">Tap to upload your DBA logo (PNG works best)</div>
+        <input type="file" id="logoInput" accept="image/png,image/jpeg,image/webp,image/svg+xml" style="display:none" onchange="onLogo(event)">
+        <label>DBA name</label><input type="text" id="fDba" placeholder="e.g. Summit Home Loans">
+      </div>
+    </div>
+
+    <button class="btn pri big" id="saveBtn" type="button" onclick="saveAll()">Save and finish</button>
+    <div class="err" id="err"></div>
+  </div>
+
+  <div id="done" class="hidden">
+    <div class="done-head"><div class="ph has" id="donePh"></div><div><h1 style="font-size:36px;margin:0" id="doneHi">You're all set</h1><div style="color:var(--muted);font-size:15px" id="doneSub"></div></div></div>
+    <p class="lede" style="margin-top:14px">Your Partners login works in every company tool. Sign in with the same email and password, and your info will already be there.</p>
+    <div class="card">
+      <div class="row"><h2>Your tools</h2><button class="btn sec" type="button" onclick="editProfile()">Edit my info</button></div>
+      <div class="tools" id="tools"></div>
+    </div>
+    <div class="card hidden" id="adminCard">
+      <div class="row"><h2>Team sign-ups</h2><span id="adminCount" style="color:var(--muted);font-size:13px"></span></div>
+      <p class="hint">Only admins see this: everyone who has created an account, and whether they finished their profile.</p>
+      <div style="overflow-x:auto"><table><thead><tr><th>Name</th><th>Email</th><th>Title</th><th>NMLS</th><th>Profile</th></tr></thead><tbody id="adminRows"></tbody></table></div>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
 <script>
+  // Edit this list as tools add the Partners login
+  var TOOLS = [
+    { name:'Social Studio', desc:'AI social posts, carousels, and reels with you in them', url:'https://social.partnersmortgage.com' },
+    { name:'Realtor Radar', desc:'Track and grow your realtor relationships', url:'https://realtorradar.partnersmortgage.com' },
+    { name:'Flyer Studio', desc:'Branded flyers in minutes', url:'https://flyers.partnersmortgage.com' },
+    { name:'Onboarding', desc:'New hire hub and resources', url:'https://onboarding.partnersmortgage.com' }
+  ];
+
+  var state = { photo:null, photoHi:null, brand:'partners', logo:null, profile:{} };
+
+  function $(id){ return document.getElementById(id); }
+  function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]; }); }
+  function toast(t){ var el = $('toast'); el.textContent = t; el.style.display = 'block'; clearTimeout(toast.t); toast.t = setTimeout(function(){ el.style.display = 'none'; }, 3000); }
+  function show(id){ ['loading', 'setup', 'done'].forEach(function(x){ $(x).classList.toggle('hidden', x !== id); }); window.scrollTo(0, 0); }
+
+  function resizeImage(dataUrl, max, type, q){
+    return new Promise(function(res){
+      var img = new Image();
+      img.onload = function(){
+        var w = img.naturalWidth || img.width, h = img.naturalHeight || img.height, s = Math.min(1, max / Math.max(w, h));
+        var c = document.createElement('canvas'); c.width = Math.max(1, Math.round(w * s)); c.height = Math.max(1, Math.round(h * s));
+        var x = c.getContext('2d');
+        if(type === 'image/jpeg'){ x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height); }
+        x.drawImage(img, 0, 0, c.width, c.height);
+        res(c.toDataURL(type, q));
+      };
+      img.onerror = function(){ res(null); };
+      img.src = dataUrl;
+    });
+  }
+  function readFile(file){ return new Promise(function(res){ var r = new FileReader(); r.onload = function(e){ res(e.target.result); }; r.readAsDataURL(file); }); }
+
+  async function onPhoto(e){
+    var f = e.target.files && e.target.files[0]; if(!f) return;
+    var raw = await readFile(f);
+    state.photoHi = await resizeImage(raw, 1024, 'image/jpeg', 0.85);
+    state.photo = await resizeImage(raw, 512, 'image/jpeg', 0.85);
+    if(!state.photo){ toast('That file could not be read. Try a JPG or PNG.'); return; }
+    var p = $('phPrev'); p.style.backgroundImage = 'url(' + state.photo + ')'; p.textContent = ''; p.classList.add('has');
+    $('phBtn').textContent = 'Change headshot';
+    e.target.value = '';
+  }
+  async function onLogo(e){
+    var f = e.target.files && e.target.files[0]; if(!f) return;
+    state.logo = await resizeImage(await readFile(f), 400, 'image/png');
+    if(state.logo) $('logoPrev').innerHTML = '<img src="' + state.logo + '" alt="">';
+    e.target.value = '';
+  }
+  function setBrand(b){
+    state.brand = b;
+    var bs = $('brandSeg').querySelectorAll('button');
+    for(var i = 0; i < bs.length; i++) bs[i].classList.toggle('sel', bs[i].getAttribute('data-b') === b);
+    $('dbaBox').classList.toggle('hidden', b !== 'dba');
+  }
+  function toggleNmls(){ var no = $('fNoNmls').checked; $('fNmls').disabled = no; if(no) $('fNmls').value = ''; }
+
+  function fillForm(p, user){
+    p = p || {};
+    var parts = String(user.name || '').trim().split(/\s+/);
+    $('fFirst').value = p.firstName || parts[0] || '';
+    $('fLast').value = p.lastName || parts.slice(1).join(' ') || '';
+    $('fTitle').value = p.title || '';
+    $('fPhone').value = p.phone || '';
+    $('fEmail').value = user.email;
+    $('fNmls').value = p.nmls || '';
+    $('fNoNmls').checked = !!p.noNmls; toggleNmls();
+    state.photo = p.photo || null; state.photoHi = p.photoHi || null;
+    if(state.photo){ var ph = $('phPrev'); ph.style.backgroundImage = 'url(' + state.photo + ')'; ph.textContent = ''; ph.classList.add('has'); $('phBtn').textContent = 'Change headshot'; }
+    state.logo = p.dbaLogo || null;
+    if(state.logo) $('logoPrev').innerHTML = '<img src="' + state.logo + '" alt="">';
+    $('fDba').value = p.dbaName || '';
+    setBrand(p.brandMode === 'dba' ? 'dba' : 'partners');
+  }
+
+  async function saveAll(){
+    var err = $('err'); err.textContent = '';
+    var first = $('fFirst').value.trim(), last = $('fLast').value.trim(), title = $('fTitle').value.trim(), phone = $('fPhone').value.trim();
+    var noNmls = $('fNoNmls').checked, nmls = $('fNmls').value.replace(/[^0-9]/g, '');
+    if(!first || !last){ err.textContent = 'Add your first and last name.'; return; }
+    if(!title){ err.textContent = 'Add your title.'; return; }
+    if(!phone){ err.textContent = 'Add your mobile phone.'; return; }
+    if(!noNmls && !nmls){ err.textContent = 'Add your NMLS number, or check "I don\'t have an NMLS number".'; return; }
+    if(!state.photo){ err.textContent = 'Upload a headshot so it can be used on your marketing.'; return; }
+    if(state.brand === 'dba' && (!state.logo || !$('fDba').value.trim())){ err.textContent = 'Add your DBA logo and name, or choose Partners Mortgage.'; return; }
+    var btn = $('saveBtn'); btn.disabled = true; btn.textContent = 'Saving...';
+    var u = PMAuth.user();
+    var profile = { firstName:first, lastName:last, title:title, phone:phone, email:u.email, nmls: noNmls ? '' : nmls, noNmls: noNmls,
+      photo: state.photo, photoHi: state.photoHi || state.photo, brandMode: state.brand, dbaName: state.brand === 'dba' ? $('fDba').value.trim() : '',
+      dbaLogo: state.brand === 'dba' ? state.logo : null, complete: true, completedAt: Date.now() };
+    try {
+      await PMAuth.saveProfile(profile);
+      state.profile = profile;
+      $('st4').classList.add('on');
+      renderDone(u);
+      toast('Saved. You are all set.');
+    } catch(e){ err.textContent = 'Could not save: ' + (e.message || e); }
+    btn.disabled = false; btn.textContent = 'Save and finish';
+  }
+
+  function renderDone(user){
+    var p = state.profile;
+    $('donePh').style.backgroundImage = p.photo ? 'url(' + p.photo + ')' : '';
+    $('doneHi').textContent = "You're all set, " + (p.firstName || 'there');
+    $('doneSub').textContent = [p.title, p.nmls ? 'NMLS #' + p.nmls : ''].filter(Boolean).join(' · ');
+    var h = '';
+    TOOLS.forEach(function(t){ h += '<a class="tool" href="' + esc(t.url) + '" target="_blank" rel="noopener"><b>' + esc(t.name) + '</b><span>' + esc(t.desc) + '</span></a>'; });
+    $('tools').innerHTML = h;
+    show('done');
+    loadAdmin(user);
+  }
+  function editProfile(){ fillForm(state.profile, PMAuth.user()); show('setup'); }
+
+  async function loadAdmin(user){
+    try {
+      var db = window.firebase.firestore();
+      var a = await db.collection('admins').doc(user.email).get();
+      if(!a.exists) return;
+      var snap = await db.collection('users').get();
+      var rows = [], done = 0;
+      snap.forEach(function(d){ var v = d.data(); rows.push(v); if(v.profile && v.profile.complete) done++; });
+      rows.sort(function(x, y){ return String((x.profile && x.profile.lastName) || x.name || '').localeCompare(String((y.profile && y.profile.lastName) || y.name || '')); });
+      var h = '';
+      rows.forEach(function(v){
+        var p = v.profile || {};
+        h += '<tr><td><span class="av" style="background-image:url(' + (p.photo || '') + ')"></span>' + esc(((p.firstName || '') + ' ' + (p.lastName || '')).trim() || v.name || '') + '</td><td>' + esc(v.email || '') + '</td><td>' + esc(p.title || '') + '</td><td>' + esc(p.nmls || (p.noNmls ? 'n/a' : '')) + '</td><td>' + (p.complete ? '<span class="pill ok">Complete</span>' : '<span class="pill no">Not finished</span>') + '</td></tr>';
+      });
+      $('adminRows').innerHTML = h;
+      $('adminCount').textContent = rows.length + ' signed up, ' + done + ' complete';
+      $('adminCard').classList.remove('hidden');
+    } catch(e){ console.warn('Admin list unavailable (rules may not allow it yet)', e); }
+  }
+
+  function signOutNow(){ PMAuth.signOut().then(function(){ window.location.reload(); }); }
+
   PMAuth.init({
-    app: 'login-test',
-    toolName: 'Login test',
+    app: 'account',
+    toolName: 'Partners Account',
     requireLogin: true,
-    onReady: function(user){
-      document.getElementById('who').textContent = user.name;
-      loadNote();
+    chip: false,
+    onReady: async function(user){
+      $('who').innerHTML = esc(user.email) + '<br><button type="button" onclick="signOutNow()">Sign out</button>';
+      try { state.profile = await PMAuth.getProfile(); } catch(e){ state.profile = {}; }
+      if(state.profile && state.profile.complete) renderDone(user);
+      else { fillForm(state.profile, user); show('setup'); }
     }
   });
-
-  function setStatus(t){ document.getElementById('status').textContent = t; }
-
-  function saveNote(){
-    setStatus('Saving...');
-    PMAuth.save('note', { text: document.getElementById('note').value })
-      .then(function(){ setStatus('Saved to your account.'); })
-      .catch(function(e){ setStatus('Save failed: ' + e.message); });
-  }
-
-  function loadNote(){
-    setStatus('Loading...');
-    PMAuth.load('note')
-      .then(function(d){ document.getElementById('note').value = d ? d.text : ''; setStatus(d ? 'Loaded from your account.' : 'Nothing saved yet.'); })
-      .catch(function(e){ setStatus('Load failed: ' + e.message); });
-  }
 </script>
 </body>
 </html>
