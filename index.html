@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Partners Login Test</title>
+<style>
+  body{margin:0;min-height:100vh;background:#060D0F;color:#F5F5F7;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Inter",system-ui,sans-serif;display:flex;align-items:center;justify-content:center;padding:24px;box-sizing:border-box}
+  .card{width:560px;max-width:100%;background:#0F181A;border-radius:22px;padding:28px;box-shadow:0 0 0 1px rgba(255,255,255,.08)}
+  h1{font-size:26px;margin:0 0 6px;letter-spacing:-.02em}
+  p{color:#A1A1A6;font-size:14px;line-height:1.5}
+  textarea{width:100%;box-sizing:border-box;min-height:120px;background:#0A1214;color:#F5F5F7;border:1px solid rgba(255,255,255,.16);border-radius:12px;padding:12px;font:15px inherit;font-family:inherit}
+  .row{display:flex;gap:10px;margin-top:12px}
+  button{border:none;border-radius:999px;padding:10px 18px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit}
+  .pri{background:#00818D;color:#fff}
+  .sec{background:rgba(118,118,128,.24);color:#F5F5F7}
+  #status{margin-top:14px;font-size:13px;color:#7FE3E9;min-height:18px}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>Hi <span id="who">there</span></h1>
+  <p>This page proves the shared login works. Type anything, press Save, then open this page on another computer or browser and sign in with the same account. Your note will be there.</p>
+  <textarea id="note" placeholder="Write a test note..."></textarea>
+  <div class="row">
+    <button class="pri" onclick="saveNote()">Save to my account</button>
+    <button class="sec" onclick="loadNote()">Reload from cloud</button>
+  </div>
+  <div id="status"></div>
+</div>
+
+<script src="pm-auth.js"></script>
+<script>
+  PMAuth.init({
+    app: 'login-test',
+    toolName: 'Login test',
+    requireLogin: true,
+    onReady: function(user){
+      document.getElementById('who').textContent = user.name;
+      loadNote();
+    }
+  });
+
+  function setStatus(t){ document.getElementById('status').textContent = t; }
+
+  function saveNote(){
+    setStatus('Saving...');
+    PMAuth.save('note', { text: document.getElementById('note').value })
+      .then(function(){ setStatus('Saved to your account.'); })
+      .catch(function(e){ setStatus('Save failed: ' + e.message); });
+  }
+
+  function loadNote(){
+    setStatus('Loading...');
+    PMAuth.load('note')
+      .then(function(d){ document.getElementById('note').value = d ? d.text : ''; setStatus(d ? 'Loaded from your account.' : 'Nothing saved yet.'); })
+      .catch(function(e){ setStatus('Load failed: ' + e.message); });
+  }
+</script>
+</body>
+</html>
