@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Partners Account</title>
-<script src="pm-auth.js"></script>
+<script src="pm-auth.js?v=4"></script>
 <style>
   :root{--bg:#060D0F;--card:#0F181A;--line:rgba(255,255,255,.08);--txt:#F5F5F7;--mid:#D1D1D6;--muted:#A1A1A6;--sub:#86868B;--teal:#00818D;--teal2:#25BAC4;--gold:#FFAC27}
   *{box-sizing:border-box}
@@ -157,7 +157,10 @@
   function $(id){ return document.getElementById(id); }
   function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]; }); }
   function toast(t){ var el = $('toast'); el.textContent = t; el.style.display = 'block'; clearTimeout(toast.t); toast.t = setTimeout(function(){ el.style.display = 'none'; }, 3000); }
-  function banner(t){ var b = $('banner'); if(!t){ b.classList.add('hidden'); return; } b.textContent = t; b.classList.remove('hidden'); window.scrollTo(0, 0); }
+  function banner(t, ok){ var b = $('banner'); if(!t){ b.classList.add('hidden'); return; } b.textContent = t; b.style.background = ok ? 'rgba(48,209,88,.10)' : 'rgba(255,69,58,.10)'; b.style.boxShadow = ok ? '0 0 0 1px rgba(48,209,88,.35)' : '0 0 0 1px rgba(255,69,58,.35)'; b.style.color = ok ? '#7EE29A' : '#FF8A80'; b.classList.remove('hidden'); window.scrollTo(0, 0); }
+  function cacheKey(){ return 'pmacct_' + (PMAuth.user() ? PMAuth.user().uid : 'x'); }
+  function cacheProfile(p){ try { localStorage.setItem(cacheKey(), JSON.stringify(p)); } catch(e){} }
+  function cachedProfile(){ try { return JSON.parse(localStorage.getItem(cacheKey()) || 'null'); } catch(e){ return null; } }
   function show(id){ ['loading', 'setup', 'done'].forEach(function(x){ $(x).classList.toggle('hidden', x !== id); }); window.scrollTo(0, 0); }
 
   function resizeImage(dataUrl, max, type, q){
@@ -239,6 +242,8 @@
       if(size > 850000 && profile.photoHi){ profile.photoHi = await resizeImage(profile.photoHi, 900, 'image/jpeg', 0.7); size = JSON.stringify(profile).length; }
       if(size > 850000){ throw new Error('Your photos are too large. Try a smaller headshot or logo file.'); }
       await PMAuth.saveProfile(profile);
+      await PMAuth.save('profile_backup', profile);
+      cacheProfile(profile);
       var check = await PMAuth.getProfile();
       if(!check || !check.complete) throw new Error('The save did not stick. Your account may not have permission to save yet.');
       banner('');
@@ -331,7 +336,21 @@
         banner('We could not load your saved profile: ' + (e.message || e) + '. Send a screenshot of this message to Aidan.');
         console.error('Profile load failed', e);
       }
-      if(state.profile && state.profile.complete) renderDone(user);
+      if(!state.profile || !state.profile.complete){
+        var backup = null;
+        try { backup = await PMAuth.load('profile_backup'); } catch(e){ console.warn('backup load failed', e); }
+        var local = cachedProfile();
+        var found = (backup && backup.complete) ? backup : ((local && local.complete) ? local : null);
+        if(found){
+          state.profile = found;
+          try {
+            await PMAuth.saveProfile(found);
+            if(!backup || !backup.complete) await PMAuth.save('profile_backup', found);
+            banner('Your saved profile was restored and re-saved to your account.', true);
+          } catch(e){ banner('Your profile was restored from this computer, but saving it to your account failed: ' + (e.message || e) + '. Send a screenshot of this to Aidan.'); }
+        }
+      }
+      if(state.profile && state.profile.complete){ cacheProfile(state.profile); renderDone(user); }
       else { fillForm(state.profile, user); show('setup'); }
     }
   });
