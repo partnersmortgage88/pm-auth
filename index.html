@@ -71,6 +71,7 @@
 <div class="wrap">
   <div class="brand"><div class="mark">P</div><div><b>Partners Mortgage</b><span>Partners Account</span></div><div class="who" id="who"></div></div>
 
+  <div id="banner" class="hidden" style="background:rgba(255,69,58,.10);box-shadow:0 0 0 1px rgba(255,69,58,.35);color:#FF8A80;border-radius:14px;padding:12px 16px;font-size:14px;line-height:1.45;margin-bottom:18px"></div>
   <div id="loading" class="lede">Loading your account...</div>
 
   <div id="setup" class="hidden">
@@ -86,7 +87,7 @@
         <div><label>Last name</label><input type="text" id="fLast" autocomplete="family-name"></div>
         <div><label>Title</label><input type="text" id="fTitle" placeholder="Loan Officer, Processor..."></div>
         <div><label>Mobile phone</label><input type="tel" id="fPhone" autocomplete="tel" placeholder="(916) 555-0123"></div>
-        <div><label>Work email</label><input type="email" id="fEmail" readonly></div>
+        <div><label>Email</label><input type="email" id="fEmail" readonly></div>
         <div><label>NMLS number <i>(licensed staff)</i></label><input type="text" id="fNmls" inputmode="numeric" placeholder="e.g. 1234567">
           <label class="check"><input type="checkbox" id="fNoNmls" onchange="toggleNmls()"> I don't have an NMLS number</label></div>
       </div>
@@ -132,6 +133,12 @@
       <p class="hint">Only admins see this: everyone who has created an account, and whether they finished their profile.</p>
       <div style="overflow-x:auto"><table><thead><tr><th>Name</th><th>Email</th><th>Title</th><th>NMLS</th><th>Profile</th></tr></thead><tbody id="adminRows"></tbody></table></div>
     </div>
+    <div class="card hidden" id="allowCard">
+      <h2>Approved outside emails</h2>
+      <p class="hint">For people without a @partnersmortgage.com email. Add their exact email, then send them this page link. They create their account with that email and verify it like everyone else.</p>
+      <div style="display:flex;gap:8px;margin-bottom:14px"><input type="email" id="allowInput" placeholder="name@gmail.com" style="flex:1"><button class="btn pri" type="button" onclick="addAllowed()">Approve</button></div>
+      <div id="allowList"></div>
+    </div>
   </div>
 </div>
 <div class="toast" id="toast"></div>
@@ -150,6 +157,7 @@
   function $(id){ return document.getElementById(id); }
   function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]; }); }
   function toast(t){ var el = $('toast'); el.textContent = t; el.style.display = 'block'; clearTimeout(toast.t); toast.t = setTimeout(function(){ el.style.display = 'none'; }, 3000); }
+  function banner(t){ var b = $('banner'); if(!t){ b.classList.add('hidden'); return; } b.textContent = t; b.classList.remove('hidden'); window.scrollTo(0, 0); }
   function show(id){ ['loading', 'setup', 'done'].forEach(function(x){ $(x).classList.toggle('hidden', x !== id); }); window.scrollTo(0, 0); }
 
   function resizeImage(dataUrl, max, type, q){
@@ -227,12 +235,22 @@
       photo: state.photo, photoHi: state.photoHi || state.photo, brandMode: state.brand, dbaName: state.brand === 'dba' ? $('fDba').value.trim() : '',
       dbaLogo: state.brand === 'dba' ? state.logo : null, complete: true, completedAt: Date.now() };
     try {
+      var size = JSON.stringify(profile).length;
+      if(size > 850000 && profile.photoHi){ profile.photoHi = await resizeImage(profile.photoHi, 900, 'image/jpeg', 0.7); size = JSON.stringify(profile).length; }
+      if(size > 850000){ throw new Error('Your photos are too large. Try a smaller headshot or logo file.'); }
       await PMAuth.saveProfile(profile);
+      var check = await PMAuth.getProfile();
+      if(!check || !check.complete) throw new Error('The save did not stick. Your account may not have permission to save yet.');
+      banner('');
       state.profile = profile;
       $('st4').classList.add('on');
       renderDone(u);
       toast('Saved. You are all set.');
-    } catch(e){ err.textContent = 'Could not save: ' + (e.message || e); }
+    } catch(e){
+      err.textContent = 'Could not save: ' + (e.message || e);
+      banner('Your profile was NOT saved. ' + (e.message || e) + ' Send a screenshot of this message to Aidan.');
+      console.error('Profile save failed', e);
+    }
     btn.disabled = false; btn.textContent = 'Save and finish';
   }
 
@@ -267,6 +285,35 @@
       $('adminCount').textContent = rows.length + ' signed up, ' + done + ' complete';
       $('adminCard').classList.remove('hidden');
     } catch(e){ console.warn('Admin list unavailable (rules may not allow it yet)', e); }
+    loadAllowed();
+  }
+
+  async function loadAllowed(){
+    try {
+      var snap = await window.firebase.firestore().collection('allowed').get();
+      var h = '';
+      snap.forEach(function(d){ var v = d.data() || {};
+        h += '<div class="row" style="padding:9px 0;border-bottom:1px solid rgba(255,255,255,.06);margin:0"><span style="font-size:14px">' + esc(d.id) + (v.name ? ' <span style="color:var(--sub)">· ' + esc(v.name) + '</span>' : '') + '</span><button class="btn sec" type="button" style="padding:6px 12px;font-size:12.5px" onclick="removeAllowed(\'' + esc(d.id) + '\')">Remove</button></div>'; });
+      $('allowList').innerHTML = h || '<div style="color:var(--sub);font-size:13px">No outside emails approved yet.</div>';
+      $('allowCard').classList.remove('hidden');
+    } catch(e){ console.warn('Approved list unavailable', e); }
+  }
+  async function addAllowed(){
+    var em = $('allowInput').value.trim().toLowerCase();
+    if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)){ toast('Enter a full email address'); return; }
+    try {
+      await window.firebase.firestore().collection('allowed').doc(em).set({ addedBy: PMAuth.user().email, addedAt: Date.now() });
+      $('allowInput').value = '';
+      toast(em + ' approved. Send them this page link.');
+      loadAllowed();
+    } catch(e){ toast('Could not approve: ' + (e.message || e)); }
+  }
+  async function removeAllowed(em){
+    try {
+      await window.firebase.firestore().collection('allowed').doc(em).delete();
+      toast(em + ' removed. They can no longer sign in.');
+      loadAllowed();
+    } catch(e){ toast('Could not remove: ' + (e.message || e)); }
   }
 
   function signOutNow(){ PMAuth.signOut().then(function(){ window.location.reload(); }); }
@@ -278,7 +325,12 @@
     chip: false,
     onReady: async function(user){
       $('who').innerHTML = esc(user.email) + '<br><button type="button" onclick="signOutNow()">Sign out</button>';
-      try { state.profile = await PMAuth.getProfile(); } catch(e){ state.profile = {}; }
+      try { state.profile = await PMAuth.getProfile(); }
+      catch(e){
+        state.profile = {};
+        banner('We could not load your saved profile: ' + (e.message || e) + '. Send a screenshot of this message to Aidan.');
+        console.error('Profile load failed', e);
+      }
       if(state.profile && state.profile.complete) renderDone(user);
       else { fillForm(state.profile, user); show('setup'); }
     }
