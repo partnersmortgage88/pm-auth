@@ -3,14 +3,14 @@
    ---------------------------------------------------------------------------
    Drop into any tool with ONE line (host this file once, e.g. GitHub Pages):
      <script src="https://partnersmortgage88.github.io/pm-auth/pm-auth.js"></script>
-
+ 
    Then:
      PMAuth.init({
        app: 'social-studio',          // a short id per tool: loan-lens, realtor-radar...
        requireLogin: true,            // show the sign-in screen until they log in
        onReady: function(user){ ... } // runs on every sign-in (user.email, user.name, user.uid)
      });
-
+ 
    Save and load (per person, per tool):
      PMAuth.save('library', dataObject)        -> Promise
      PMAuth.load('library')                    -> Promise(data or null)
@@ -24,13 +24,13 @@
      PMAuth.loadShared('templates') / PMAuth.saveShared('templates', data)  (admins only for save)
    Other:
      PMAuth.user(), PMAuth.signOut(), PMAuth.onChange(fn), PMAuth.openLogin()
-
+ 
    Rules: only verified @partnersmortgage.com emails can read or write anything.
    That is enforced by the Firestore and Storage security rules (see SETUP),
    so the apiKey below being visible is normal and safe for Firebase.
    =========================================================================== */
 var PMAuth = (function(){
-
+ 
   // ---- 1. Paste your Firebase web app config here (Project settings > Your apps) ----
   var FIREBASE_CONFIG = {
     apiKey: 'AIzaSyCgKNa6AGlw0DiftPf4oK8v-J2Qst_dEwE',
@@ -42,10 +42,10 @@ var PMAuth = (function(){
   };
   var ALLOWED_DOMAIN = 'partnersmortgage.com';
   var SDK_VERSION = '10.14.1';
-
+ 
   var fb = null, auth = null, db = null, storage = null;
   var current = null, appId = 'tool', opts = {}, listeners = [], readyPromise = null;
-
+ 
   // ---------------------------------------------------------------- loading
   function loadScript(src){
     return new Promise(function(res, rej){
@@ -63,16 +63,34 @@ var PMAuth = (function(){
       .then(function(){ return loadScript(base + 'firebase-firestore-compat.js'); })
       .then(function(){ return loadScript(base + 'firebase-storage-compat.js'); });
   }
-
+ 
   function emailOk(email){
     return String(email || '').toLowerCase().slice(-(ALLOWED_DOMAIN.length + 1)) === '@' + ALLOWED_DOMAIN;
   }
-
+ 
+  // Outside emails (no company address) are approved by an admin in the "allowed" collection
+  var PMAUTH_VERSION = '6';
+  var lastAllowError = '';
+  function checkAllowed(email){
+    email = String(email || '').toLowerCase().trim();
+    lastAllowError = '';
+    if(emailOk(email)) return Promise.resolve(true);
+    if(!db || !email) return Promise.resolve(false);
+    return db.collection('allowed').doc(email).get({ source: 'server' })
+      .catch(function(){ return db.collection('allowed').doc(email).get(); })
+      .then(function(d){ return d.exists; })
+      .catch(function(e){
+        lastAllowError = (e && e.code) ? e.code : String(e && e.message || e);
+        console.error('PMAuth approved-email check failed', e);
+        return false;
+      });
+  }
+ 
   function shape(u){
     if(!u) return null;
     return { uid: u.uid, email: u.email, name: u.displayName || String(u.email || '').split('@')[0], verified: !!u.emailVerified };
   }
-
+ 
   // ---------------------------------------------------------------- init
   function init(o){
     opts = o || {};
@@ -85,17 +103,8 @@ var PMAuth = (function(){
       db = fb.firestore();
       try { storage = fb.storage(); } catch(e){ storage = null; }
       auth.onAuthStateChanged(function(u){
-        if(u && emailOk(u.email) && u.emailVerified){
-          current = shape(u);
-          closeLogin();
-          db.collection('users').doc(u.uid).set({ email: u.email, name: current.name, lastSeen: fb.firestore.FieldValue.serverTimestamp(), lastApp: appId }, { merge: true }).catch(function(){});
-          if(typeof opts.onReady === 'function'){ try { opts.onReady(current); } catch(e){ console.error(e); } }
-        } else {
-          current = null;
-          if(u && emailOk(u.email) && !u.emailVerified) showLogin('verify', u.email);
-          else if(opts.requireLogin) showLogin('signin');
-        }
-        for(var i = 0; i < listeners.length; i++){ try { listeners[i](current); } catch(e){} }
+        if(!u){ handleUser(null, false); return; }
+        checkAllowed(u.email).then(function(ok){ handleUser(u, ok); });
       });
     }).catch(function(err){
       console.error('PMAuth failed to start', err);
@@ -103,13 +112,33 @@ var PMAuth = (function(){
     });
     return readyPromise;
   }
-
+ 
+  function handleUser(u, allowed){
+        if(u && allowed && u.emailVerified){
+          current = shape(u);
+          closeLogin();
+          db.collection('users').doc(u.uid).set({ email: u.email, name: current.name, lastSeen: fb.firestore.FieldValue.serverTimestamp(), lastApp: appId }, { merge: true }).catch(function(){});
+          if(typeof opts.onReady === 'function'){ try { opts.onReady(current); } catch(e){ console.error(e); } }
+        } else {
+          current = null;
+          if(u && allowed && !u.emailVerified) showLogin('verify', u.email);
+          else if(u && !allowed){ auth.signOut(); showLogin('signin'); setTimeout(function(){ msg(notAllowedMsg()); }, 30); }
+          else if(opts.requireLogin) showLogin('signin');
+        }
+        for(var i = 0; i < listeners.length; i++){ try { listeners[i](current); } catch(e){} }
+  }
+ 
+  function notAllowedMsg(){
+    if(lastAllowError) return 'Could not check the approved list (' + lastAllowError + '). The database rules need updating. Send this message to Aidan. [v' + PMAUTH_VERSION + ']';
+    return 'This email is not approved. Use your @' + ALLOWED_DOMAIN + ' email, or ask an admin to add this exact email to the approved list. [v' + PMAUTH_VERSION + ']';
+  }
+ 
   function need(){
     if(!current) return Promise.reject(new Error('Not signed in'));
     return readyPromise;
   }
   function itemRef(key){ return db.collection('users').doc(current.uid).collection('apps').doc(appId).collection('items').doc(String(key)); }
-
+ 
   // ---------------------------------------------------------------- data API
   function save(key, data){
     return need().then(function(){
@@ -129,15 +158,17 @@ var PMAuth = (function(){
     });
   }
   function remove(key){ return need().then(function(){ return itemRef(key).delete(); }); }
-
+ 
   function getProfile(){
-    return need().then(function(){ return db.collection('users').doc(current.uid).get(); })
-      .then(function(d){ return d.exists ? (d.data().profile || {}) : {}; });
+    return need().then(function(){
+      var ref = db.collection('users').doc(current.uid);
+      return ref.get({ source: 'server' }).catch(function(){ return ref.get(); });
+    }).then(function(d){ return d.exists ? (d.data().profile || {}) : {}; });
   }
   function saveProfile(p){
     return need().then(function(){ return db.collection('users').doc(current.uid).set({ profile: p || {} }, { merge: true }); });
   }
-
+ 
   function loadShared(key){
     return need().then(function(){ return db.collection('shared').doc(appId + '__' + key).get(); })
       .then(function(d){ return d.exists ? d.data().data : null; });
@@ -147,7 +178,7 @@ var PMAuth = (function(){
       return db.collection('shared').doc(appId + '__' + key).set({ data: data, updatedAt: fb.firestore.FieldValue.serverTimestamp(), by: current.email });
     });
   }
-
+ 
   function uploadDataUrl(path, dataUrl){
     return need().then(function(){
       if(!storage) throw new Error('File storage is not enabled for this project');
@@ -155,11 +186,11 @@ var PMAuth = (function(){
       return ref.putString(dataUrl, 'data_url').then(function(){ return ref.getDownloadURL(); });
     });
   }
-
+ 
   function signOut(){ return auth ? auth.signOut() : Promise.resolve(); }
   function onChange(fn){ listeners.push(fn); if(current) fn(current); }
   function user(){ return current; }
-
+ 
   // ---------------------------------------------------------------- login UI
   var overlay = null;
   function injectStyles(){
@@ -192,9 +223,9 @@ var PMAuth = (function(){
     st.textContent = css;
     document.head.appendChild(st);
   }
-
+ 
   function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]; }); }
-
+ 
   function showLogin(mode, extra){
     if(!overlay){
       overlay = document.createElement('div');
@@ -203,12 +234,12 @@ var PMAuth = (function(){
     }
     var tool = opts.toolName || 'Partners tools';
     var head = '<div class="pa-card"><div class="pa-logo"><div class="pa-mark">P</div><div class="pa-brand"><b>Partners Mortgage</b><span>' + esc(tool) + '</span></div></div>';
-    var foot = '<div class="pa-foot">One account for every Partners tool. Use your @' + ALLOWED_DOMAIN + ' email.</div></div>';
+    var foot = '<div class="pa-foot">One account for every Partners tool. Use your @' + ALLOWED_DOMAIN + ' email, or an email an admin approved.</div></div>';
     var h = '';
     if(mode === 'signup'){
       h = '<h2>Create your account</h2><p>Use your work email. We will send a link to confirm it is you.</p>' +
         '<label>Full name</label><input id="paName" autocomplete="name" placeholder="First Last">' +
-        '<label>Work email</label><input id="paEmail" type="email" autocomplete="email" placeholder="you@' + ALLOWED_DOMAIN + '">' +
+        '<label>Email</label><input id="paEmail" type="email" autocomplete="email" placeholder="you@' + ALLOWED_DOMAIN + '">' +
         '<label>Password</label><input id="paPw" type="password" autocomplete="new-password" placeholder="At least 8 characters">' +
         '<button class="pa-go" id="paGo">Create account</button><div class="pa-msg" id="paMsg"></div>' +
         '<div class="pa-links"><a data-go="signin">I already have an account</a></div>';
@@ -248,9 +279,9 @@ var PMAuth = (function(){
     var first = overlay.querySelector('input');
     if(first) setTimeout(function(){ first.focus(); }, 50);
   }
-
+ 
   function closeLogin(){ if(overlay) overlay.style.display = 'none'; }
-
+ 
   function msg(t, ok){
     var m = document.getElementById('paMsg');
     if(!m) return;
@@ -274,9 +305,9 @@ var PMAuth = (function(){
     if(c.indexOf('network') > -1) return 'Connection problem. Check your internet and try again.';
     return (err && err.message) || 'Something went wrong. Try again.';
   }
-
+ 
   function val(id){ var el = document.getElementById(id); return el ? el.value.trim() : ''; }
-
+ 
   function submit(mode){
     if(!auth){ msg('Still connecting. Try again in a second.'); return; }
     var email = val('paEmail').toLowerCase(), pw = val('paPw');
@@ -293,7 +324,16 @@ var PMAuth = (function(){
       }).catch(function(e){ busy(false); msg(friendly(e)); });
       return;
     }
-    if(mode !== 'verify' && !emailOk(email)){ msg('Use your @' + ALLOWED_DOMAIN + ' work email.'); return; }
+    if(!email){ msg('Enter your email.'); return; }
+    busy(true, 'Checking...');
+    checkAllowed(email).then(function(ok){
+      busy(false);
+      if(!ok){ msg(notAllowedMsg()); return; }
+      proceed(mode, email, pw);
+    });
+  }
+ 
+  function proceed(mode, email, pw){
     if(mode === 'reset'){
       busy(true, 'Sending...');
       auth.sendPasswordResetEmail(email).then(function(){ busy(false); msg('Reset link sent. Check your inbox.', true); })
@@ -316,14 +356,14 @@ var PMAuth = (function(){
     auth.signInWithEmailAndPassword(email, pw).then(function(){ busy(false); })
       .catch(function(e){ busy(false); msg(friendly(e)); });
   }
-
+ 
   function resend(){
     var u = auth && auth.currentUser;
     if(!u) return;
     u.sendEmailVerification().then(function(){ msg('Sent again. Check your inbox and spam folder.', true); })
       .catch(function(e){ msg(friendly(e)); });
   }
-
+ 
   // Small signed-in chip with sign-out (tools can hide it with opts.chip === false)
   onChange(function(u){
     var chip = document.getElementById('pmauthChip');
@@ -332,7 +372,7 @@ var PMAuth = (function(){
     chip.innerHTML = '<span>' + esc(u.email) + '</span><button type="button">Sign out</button>';
     chip.querySelector('button').onclick = function(){ signOut().then(function(){ if(opts.requireLogin) showLogin('signin'); }); };
   });
-
+ 
   return {
     init: init, user: user, onChange: onChange, signOut: signOut, openLogin: function(){ showLogin('signin'); },
     save: save, load: load, list: list, remove: remove,
